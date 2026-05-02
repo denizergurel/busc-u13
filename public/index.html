@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="BUSC U13"/>
+  <meta name="theme-color" content="#07090f"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="apple-touch-icon" href="/icon-192.png"/>
+  <title>BUSC U13 Standings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #07090f;
+      --surface: #0d1220;
+      --border:  #16203a;
+      --gold:    #F5C518;
+      --gold-dim:rgba(245,197,24,0.09);
+      --gold-ring:rgba(245,197,24,0.2);
+      --green:   #16a34a;
+      --green-bg:rgba(22,163,74,0.1);
+      --red:     #dc2626;
+      --text:    #e2e8f8;
+      --muted:   #4a5a7a;
+      --font-display: 'Syne', sans-serif;
+      --font-mono:    'DM Mono', monospace;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: calc(14px + var(--safe-top)) 16px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .club-info {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .badge {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold), #9a6f00);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px rgba(245,197,24,0.25);
+      flex-shrink: 0;
+    }
+
+    .club-name {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .club-sub {
+      font-size: 10px;
+      color: var(--gold);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 2px;
+      font-family: var(--font-mono);
+    }
+
+    .refresh-btn {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s;
+    }
+    .refresh-btn:active { color: var(--gold); }
+    .refresh-btn.spinning { animation: spin 0.7s linear infinite; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+    }
+
+    .tab {
+      flex: 1;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      padding: 9px 0 11px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+      font-weight: 700;
+    }
+
+    /* ── Ballistic callout ── */
+    .callout {
+      margin: 14px 16px 0;
+      background: var(--gold-dim);
+      border: 1px solid var(--gold-ring);
+      border-radius: 14px;
+      padding: 13px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      display: none;
+    }
+    .callout.visible { display: flex; }
+
+    .callout-left { display: flex; flex-direction: column; gap: 3px; }
+    .callout-label { font-size: 10px; color: var(--gold); letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--font-mono); }
+    .callout-record { font-size: 14px; font-weight: 700; }
+    .callout-rank { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    .callout-pts-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; font-family: var(--font-mono); }
+    .callout-pts { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--gold); line-height: 1; text-align: right; }
+
+    /* ── Body ── */
+    .body { flex: 1; padding-bottom: var(--safe-bot); }
+
+    /* ── Skeleton ── */
+    .skeleton { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .skel-row { display: flex; align-items: center; gap: 10px; }
+    .skel-box {
+      background: var(--surface);
+      border-radius: 6px;
+      animation: shimmer 1.4s ease-in-out infinite;
+      background-size: 200% 100%;
+      background-image: linear-gradient(90deg, var(--surface) 25%, #121a2e 50%, var(--surface) 75%);
+    }
+
+    /* ── Error ── */
+    .error-state {
+      padding: 48px 24px;
+      text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+    }
+    .error-icon { font-size: 42px; }
+    .error-title { font-family: var(--font-display); font-size: 18px; font-weight: 800; }
+    .error-msg { font-size: 13px; color: var(--muted); line-height: 1.6; max-width: 280px; }
+    .retry-btn {
+      background: var(--gold); color: #000;
+      font-weight: 800; font-size: 14px;
+      border: none; border-radius: 14px;
+      padding: 14px 32px; cursor: pointer;
+      font-family: var(--font-display);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Column headers ── */
+    .col-headers {
+      display: grid;
+      grid-template-columns: 28px 1fr 28px 28px 28px 40px;
+      gap: 4px;
+      padding: 10px 16px 10px 13px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    /* ── Team row ── */
+    .team-row {
+      border-bottom: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      transition: background 0.12s;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .team-row.highlight {
+      border-left-color: var(--gold);
+      background: var(--gold-dim);
+    }
+    .team-row:active { background: rgba(255,255,255,0.03); }
+
+    .team-main {
+      display: grid;
+      grid-template-columns: 28px 1fr 28px 28px 28px 40px;
+      gap: 4px;
+      padding: 14px 16px 14px 13px;
+      align-items: center;
+    }
+
+    .team-pos {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      color: var(--muted);
+    }
+    .team-pos.gold { color: var(--gold); }
+
+    .team-name-wrap {}
+    .team-name {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.2;
+      color: var(--text);
+    }
+    .team-row.highlight .team-name { font-weight: 700; color: var(--gold); }
+    .team-tag {
+      font-size: 9px;
+      color: var(--gold);
+      opacity: 0.6;
+      font-family: var(--font-mono);
+      margin-top: 2px;
+      letter-spacing: 0.05em;
+    }
+
+    .stat { text-align: center; font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
+    .stat.w { color: var(--green); }
+    .stat.l { color: var(--red); }
+    .stat.d { color: var(--muted); }
+    .stat.pts { text-align: right; font-size: 16px; font-weight: 800; font-family: var(--font-display); color: var(--text); }
+
+    /* ── Expanded detail ── */
+    .team-detail {
+      display: flex;
+      gap: 20px;
+      padding: 0 16px 14px 44px;
+    }
+    .detail-stat { text-align: center; }
+    .detail-label { font-size: 9px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--font-mono); }
+    .detail-val { font-size: 15px; font-weight: 700; font-family: var(--font-mono); color: var(--text); margin-top: 3px; }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 20px 16px calc(20px + var(--safe-bot));
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      line-height: 1.8;
+      letter-spacing: 0.04em;
+    }
+    .footer a { color: var(--muted); text-decoration: none; }
+
+    /* ── Results tab ── */
+    .result-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .result-badge {
+      width: 30px; height: 30px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+    .result-badge.W { background: var(--green-bg); color: var(--green); }
+    .result-badge.L { background: rgba(220,38,38,0.1); color: var(--red); }
+    .result-badge.D { background: rgba(74,90,122,0.15); color: var(--muted); }
+    .result-info { flex: 1; }
+    .result-opp { font-size: 14px; font-weight: 500; }
+    .result-date { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+    .result-score { font-family: var(--font-display); font-size: 18px; font-weight: 800; }
+    .result-score.W { color: var(--green); }
+    .result-score.L { color: var(--red); }
+    .result-score.D { color: var(--muted); }
+
+    /* ── Animations ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .fadein { animation: fadeUp 0.25s ease both; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-row">
+      <div class="club-info">
+        <div class="badge">⚽</div>
+        <div>
+          <div class="club-name">Ballistic United FC</div>
+          <div class="club-sub" id="sub-line">U13 · Loading…</div>
+        </div>
+      </div>
+      <button class="refresh-btn" id="refresh-btn" onclick="loadData()">↺</button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('standings', this)">🏆 Standings</button>
+      <button class="tab" onclick="switchTab('results', this)">⚽ Results</button>
+    </div>
+    <div class="callout" id="callout">
+      <div class="callout-left">
+        <div class="callout-label">Ballistic United</div>
+        <div class="callout-record" id="callout-record">—</div>
+        <div class="callout-rank" id="callout-rank">—</div>
+      </div>
+      <div>
+        <div class="callout-pts-label">Pts</div>
+        <div class="callout-pts" id="callout-pts">—</div>
+      </div>
+    </div>
+    <div style="height:14px"></div>
+  </div>
+
+  <!-- Body -->
+  <div class="body" id="body">
+    <div class="skeleton" id="skeleton">
+      ${Array.from({length:8}).map((_,i) => `
+        <div class="skel-row">
+          <div class="skel-box" style="width:24px;height:24px;border-radius:50%"></div>
+          <div class="skel-box" style="flex:1;height:14px;max-width:${40+i*5}%"></div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <div class="skel-box" style="width:28px;height:14px"></div>
+            <div class="skel-box" style="width:28px;height:14px"></div>
+            <div class="skel-box" style="width:28px;height:14px"></div>
+            <div class="skel-box" style="width:36px;height:18px"></div>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let state = { status: 'loading', teams: [], tab: 'standings', expandedIdx: null };
+
+const GOTSPORT_URL = "https://system.gotsport.com/org_event/events/49370/results?group=436213";
+
+// Known results from ChatGPT retrieval (fallback if API fails)
+const KNOWN_RESULTS = [
+  { date:"Apr 2026",  away:"Diablo Valley",         score:"5–3", result:"W" },
+  { date:"Apr 2026",  away:"Mt. Diablo Mustang II", score:"6–0", result:"W" },
+  { date:"Mar 2026",  away:"Dublin United",          score:"3–1", result:"W" },
+  { date:"Mar 2026",  away:"Mustang SC Quakes",      score:"4–1", result:"W" },
+  { date:"Mar 2026",  away:"Livermore Fusion",       score:"2–0", result:"W" },
+];
+
+// ─── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  state.tab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if (state.status === 'done') render();
+}
+
+// ─── Load data ─────────────────────────────────────────────────────────────────
+async function loadData() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  state.status = 'loading';
+  state.expandedIdx = null;
+  renderSkeleton();
+
+  try {
+    const res = await fetch('/api/standings');
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+
+    state.teams = data.teams || [];
+    state.division = data.division;
+    state.updatedAt = data.updatedAt;
+    state.status = state.teams.length > 0 ? 'done' : 'error';
+    state.errorMsg = state.teams.length === 0 ? 'API returned empty standings' : null;
+  } catch (err) {
+    state.status = 'error';
+    state.errorMsg = err.message;
+  }
+
+  btn.classList.remove('spinning');
+  render();
+}
+
+// ─── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  updateHeader();
+  const body = document.getElementById('body');
+
+  if (state.status === 'loading') { renderSkeleton(); return; }
+
+  if (state.status === 'error') {
+    body.innerHTML = `
+      <div class="error-state fadein">
+        <div class="error-icon">⚠️</div>
+        <div class="error-title">Couldn't load standings</div>
+        <div class="error-msg">${state.errorMsg || 'GotSport may be blocking requests. Try again in a moment.'}</div>
+        <button class="retry-btn" onclick="loadData()">Try Again</button>
+        <a href="${GOTSPORT_URL}" target="_blank" style="font-size:12px;color:var(--muted);text-decoration:none;margin-top:4px">
+          Open GotSport ↗
+        </a>
+      </div>`;
+    return;
+  }
+
+  if (state.tab === 'standings') renderStandings(body);
+  else renderResults(body);
+}
+
+function renderSkeleton() {
+  const body = document.getElementById('body');
+  body.innerHTML = `<div class="skeleton">${
+    Array.from({length:8}).map((_,i) => `
+      <div class="skel-row">
+        <div class="skel-box" style="width:24px;height:24px;border-radius:50%"></div>
+        <div class="skel-box" style="flex:1;height:14px;max-width:${40+i*5}%"></div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <div class="skel-box" style="width:28px;height:14px"></div>
+          <div class="skel-box" style="width:28px;height:14px"></div>
+          <div class="skel-box" style="width:28px;height:14px"></div>
+          <div class="skel-box" style="width:36px;height:18px"></div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+}
+
+function updateHeader() {
+  const ballistic = state.teams.find(t => t.isBallistic);
+  const sub = document.getElementById('sub-line');
+  const callout = document.getElementById('callout');
+
+  if (state.updatedAt) {
+    const t = new Date(state.updatedAt);
+    sub.textContent = `U13 · Bronze · ${t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+  } else {
+    sub.textContent = 'U13 · Bronze · Region 3';
+  }
+
+  if (ballistic) {
+    callout.classList.add('visible');
+    document.getElementById('callout-record').textContent = `${ballistic.w}W · ${ballistic.l}L · ${ballistic.d}D`;
+    document.getElementById('callout-rank').textContent = `Rank #${ballistic.pos} of ${state.teams.length} teams`;
+    document.getElementById('callout-pts').textContent = ballistic.pts;
+  } else {
+    callout.classList.remove('visible');
+  }
+}
+
+function renderStandings(body) {
+  const rows = state.teams.map((t, i) => {
+    const isOurs = t.isBallistic;
+    const isOpen = state.expandedIdx === i;
+    const isFirst = parseInt(t.pos) === 1;
+
+    return `
+      <div class="team-row ${isOurs ? 'highlight' : ''}" onclick="toggleRow(${i})">
+        <div class="team-main">
+          <div class="team-pos ${isFirst ? 'gold' : ''}">${isFirst ? '🥇' : t.pos}</div>
+          <div class="team-name-wrap">
+            <div class="team-name">${t.team}</div>
+            ${isOurs ? '<div class="team-tag">★ your son\'s team</div>' : ''}
+          </div>
+          <div class="stat w">${t.w}</div>
+          <div class="stat l">${t.l}</div>
+          <div class="stat d">${t.d}</div>
+          <div class="stat pts">${t.pts}</div>
+        </div>
+        ${isOpen ? `
+          <div class="team-detail">
+            ${[['GP',t.gp],['GF',t.gf],['GA',t.ga],['GD',t.gd]].map(([l,v])=>`
+              <div class="detail-stat">
+                <div class="detail-label">${l}</div>
+                <div class="detail-val">${v}</div>
+              </div>`).join('')}
+          </div>` : ''}
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="fadein">
+      <div class="col-headers">
+        <span style="text-align:center">#</span>
+        <span>Team</span>
+        <span style="text-align:center">W</span>
+        <span style="text-align:center">L</span>
+        <span style="text-align:center">D</span>
+        <span style="text-align:right">Pts</span>
+      </div>
+      ${rows}
+      <div class="footer">
+        Tap any row to expand · ${state.teams.length} teams<br>
+        <a href="${GOTSPORT_URL}" target="_blank">Source: GotSport ↗</a>
+      </div>
+    </div>`;
+}
+
+function renderResults(body) {
+  const rows = KNOWN_RESULTS.map(r => `
+    <div class="result-row">
+      <div class="result-badge ${r.result}">${r.result}</div>
+      <div class="result-info">
+        <div class="result-opp">vs ${r.away}</div>
+        <div class="result-date">${r.date}</div>
+      </div>
+      <div class="result-score ${r.result}">${r.score}</div>
+    </div>`).join('');
+
+  body.innerHTML = `
+    <div class="fadein">
+      <div style="padding:12px 16px 8px;font-size:10px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;font-family:var(--font-mono)">
+        Ballistic United · All Results
+      </div>
+      ${rows}
+      <div class="footer">5 played · 20 GF · 5 GA · 5W 0L 0D</div>
+    </div>`;
+}
+
+function toggleRow(i) {
+  state.expandedIdx = state.expandedIdx === i ? null : i;
+  renderStandings(document.getElementById('body'));
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadData();
+
+// Register service worker for offline
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
