@@ -1,6 +1,13 @@
 {
-  "rewrites": [
-    { "source": "/api/standings", "destination": "/api/standings" },
-    { "source": "/(.*)", "destination": "/public/$1" }
+  "functions": {
+    "api/*.js": {
+      "runtime": "edge"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 6 * * *"
+    }
   ]
 }
