@@ -1,52 +1,73 @@
-# BUSC U13 Standings PWA
+# BUSC U13
 
-Mobile-first standings app for Ballistic United FC U13 · NorCal Premier Bronze Region 3.
+A tiny mobile PWA that shows live league standings for my son's youth soccer team — Ballistic United Soccer Club U13, NorCal Premier Bronze Region 3.
 
-## Deploy to Vercel (5 minutes, free)
+One tap from the iPhone home screen → standings load in under a second.
 
-### Option A — GitHub (recommended)
-1. Create a free account at github.com
-2. Create a new repository called `busc-u13`
-3. Upload all files from this folder
-4. Go to vercel.com → "Add New Project" → import your GitHub repo
-5. Click Deploy — done
+## The story
 
-### Option B — Vercel CLI (faster if you have Node.js)
-```bash
-npm i -g vercel
-cd busc-pwa
-vercel
-```
-Follow the prompts. Your app will be live at `https://busc-u13.vercel.app`.
+My son plays for BUSC U13. Every weekend after games, he asks how the standings look. The league publishes results on GotSport — a serviceable but clunky desktop-first system that hides standings behind tabs and forces a fresh page load every time.
 
-### Add to iPhone Home Screen
-1. Open the Vercel URL in Safari
-2. Tap the Share button (box with arrow)
-3. Tap "Add to Home Screen"
-4. Name it "BUSC U13" → Add
+I wanted: open phone → tap icon → see standings. That's it.
 
-It will appear as an app icon. One tap → live standings. No App Store needed.
+So I built it in an evening. A Vercel serverless function that fetches GotSport, parses the table, and serves clean JSON. A static PWA that consumes the JSON, renders a mobile-first standings view, and installs to the iPhone home screen like a native app.
 
-## How it works
+It's stupidly small. It also gets used every single weekend.
+
+## Architecture
 
 ```
-iPhone Safari
-    ↓ calls
-/api/standings  (Vercel serverless function)
-    ↓ fetches
-system.gotsport.com (with browser-like headers)
-    ↓ returns parsed JSON
-Beautiful mobile UI
+iPhone home screen
+       ↓ tap
+PWA (public/index.html) — mobile-first standings + results UI
+       ↓ fetch
+/api/standings — Vercel edge function
+       ↓ reads
+Upstash KV (cached)  ← refreshed nightly by /api/cron
+       ↓ misses fall back to
+GotSport PDF / HTML (live fetch with realistic browser headers)
+       ↓ further fallback
+Hardcoded last-known-good standings
 ```
 
-The key: Vercel's servers have clean IP addresses that aren't flagged by
-Cloudflare the way public CORS proxies are. The function also sends realistic
-browser headers (iPhone Safari UA, Accept headers, Referer).
+A nightly cron (6am UTC) pulls fresh data from GotSport and caches it in Upstash. Day-of fetches hit the cache first, which keeps the iPhone tap → render time under 500ms. If the cache is cold, the function falls back to live fetch. If GotSport is unreachable (it occasionally is), there's a baked-in fallback so the app never shows an empty screen.
+
+## Why these tech choices
+
+| Decision | Why |
+|---|---|
+| **Vercel edge functions** | Free, fast cold starts, serverless cron built in. No infra to babysit. |
+| **Upstash KV** | Serverless Redis. Free tier. Stores the nightly snapshot so the iPhone request never waits on GotSport. |
+| **Realistic browser headers** | Public CORS proxies get flagged by Cloudflare. Vercel server IPs + iPhone Safari UA + Accept headers + Referer pass through clean. |
+| **PWA, not native app** | No App Store dance. Add to Home Screen, full-screen, offline-capable via service worker. |
+| **Single HTML file UI** | Total code size is small enough that a single file is the right unit. No build step, no bundler, no framework. |
 
 ## Files
 
-- `api/standings.js` — serverless function, fetches + parses GotSport HTML
-- `public/index.html` — full PWA (standings + results tabs, expandable rows)
-- `public/manifest.json` — PWA manifest (enables "Add to Home Screen")
-- `public/sw.js` — service worker (offline support)
-- `vercel.json` — routing config
+```
+busc-u13/
+├── api/
+│   ├── standings.js   # serverless function: KV → live PDF → live HTML → fallback
+│   └── cron.js        # nightly job: refresh GotSport snapshot into KV
+├── public/
+│   ├── index.html     # the PWA (standings + results tabs, expandable rows)
+│   ├── manifest.json  # PWA manifest (Add to Home Screen)
+│   └── sw.js          # service worker (offline support)
+└── vercel.json        # routing + cron schedule
+```
+
+## Deploy your own
+
+For a different team in a different league, fork and:
+1. Update `PDF_URL` and `HTML_URL` in `api/standings.js` and `api/cron.js` (GotSport URLs are league-specific)
+2. Update `FALLBACK_TEAMS` with your team's league
+3. Set environment variables: `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `KV_REST_API_READ_ONLY_TOKEN`
+4. `vercel deploy`
+
+## Why this is here
+
+It's the smallest project on my GitHub and also one of my favorites. Reminder that not every tool needs to be ambitious — sometimes the right scope is "thing I'll use every Saturday morning for one season." Same shipping discipline as a larger build, applied to a real need that doesn't have a big audience but does have a real one (me, my son, occasionally my wife).
+
+## License
+
+MIT.
